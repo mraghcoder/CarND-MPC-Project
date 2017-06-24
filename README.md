@@ -25,7 +25,7 @@ These error are appended to the state and the state is now represented as [x,y,�
 The simulator provides the vehicle's position, velocity and orientation and the map co-ordinates of waypoints. First need to transform the waypoints into vehicle co-ordinates and then do a 3rd order polynomial fit to represent the trajectory. Using the trajectory and the vehicle's current position the errors - cte, eψ are calculated. The state [x,y,ψ,v,cte,eψ] and coefficients representing the trajectory are passed to the MPC Solve routine which returns the actuator commands - steering angle and throttle to control the vehicle's motion.
 
 The Solve routine uses a non-linear optimizer (Ipopt) to optimize the control inputs based on the state, cost and constraints defined. Defining the cost and weights associated with each of the contributors:
-![alt text](cost.png "Cost")
+![alt text](Cost.png "Cost")
 
 The steering angle is constrained between [-1, 1] and throttle between [-1,1] - where -1 represents full brake and +1 full throttle.
 
