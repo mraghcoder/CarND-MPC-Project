@@ -1,7 +1,55 @@
-# CarND-Controls-MPC
+# Model Predictive Control Project
 Self-Driving Car Engineer Nanodegree Program
 
 ---
+
+![alt text](mpc.png "MPC Control")
+
+## Problem Statement
+Implement Model Predictive Control in C++ to drive the car around the track.
+
+## Implementation
+### Model
+In this project a Model Predictive Control was implemented based on the Kinematic motion model. The state is represented by the vehicle's position (px, py), velocity(v) and orientation (ψ). The actuators or control inputs are [δ,a] (steering angle and throttle). The Kinematic model is represented by the following equations:
+![alt text](kinematic_model_eqn1.png "Kinematic model state")
+
+This model is used to implement a controller to follow a trajectory.
+
+The errors we are trying to minimize are -
+- Cross track error (cte) , which is the distance of the vehicle from the trajectory
+- Orientation error (eψ)- the difference in vehicle orientation and trajectory orientation.
+These error are appended to the state and the state is now represented as [x,y,ψ,v,cte,eψ]. The errors can be represented as:
+![alt text](cte_update.png "CTE")
+![alt text](epsi_update.png "EPSI")
+
+The simulator provides the vehicle's position, velocity and orientation and the map co-ordinates of waypoints. First need to transform the waypoints into vehicle co-ordinates and then do a 3rd order polynomial fit to represent the trajectory. Using the trajectory and the vehicle's current position the errors - cte, eψ are calculated. The state [x,y,ψ,v,cte,eψ] and coefficients representing the trajectory are passed to the MPC Solve routine which returns the actuator commands - steering angle and throttle to control the vehicle's motion.
+
+The Solve routine uses a non-linear optimizer (Ipopt) to optimize the control inputs based on the state, cost and constraints defined. Defining the cost and weights associated with each of the contributors:
+![alt text](cost.png "Cost")
+
+The steering angle is constrained between [-1, 1] and throttle between [-1,1] - where -1 represents full brake and +1 full throttle.
+
+The model constraints based on the kinematic model are set as:
+![alt text](model_constraints.png "Constraints")
+
+### Timestep length and duration
+The prediction horizon is the duration over which future predictions are made and is dependent on N and dt. N is the number of timesteps in the horizon. dt is how much time elapses between actuations. N determines the number of variables the optimized by MPC. This is also the major driver of computational cost. MPC attempts to approximate a continuous reference trajectory by means of discrete paths between actuations - at dt intervals.
+
+The values N=10, dt=0.1 which translates to a prediction horizon of 1 sec gave good results.
+
+The steering control was oscillating quite a lot with N=20, dt=0.05  
+
+
+### Polynomial Fitting
+A 3rd degree polynomial was used to map the waypoints into a trajectory since a 3rd degree polynomial can represent most roads quite well. The most important thing is to transform the waypoints from map co-ordinates to vehicle co-ordinates and use that to drive the MPC.
+
+### Model Predictive Control with Latency
+The code has a 100ms latency implemented in sending the actuator commands back to the simulator to capture the delay in propagating the commands through the system. Any latency can be accounted for in the model by updating the state for the delay and passing that as the initial state of the model. The latency was compensated as follows:
+![alt text](latency.png "Latency compensation")
+
+## Result
+Using Model Predictive Control to drive the car around the track:
+[![Constant Throttle](http://img.youtube.com/vi/K2YEhLdqUGw/0.jpg)](http://www.youtube.com/watch?v=K2YEhLdqUGw)
 
 ## Dependencies
 
@@ -19,7 +67,7 @@ Self-Driving Car Engineer Nanodegree Program
   * Run either `install-mac.sh` or `install-ubuntu.sh`.
   * If you install from source, checkout to commit `e94b6e1`, i.e.
     ```
-    git clone https://github.com/uWebSockets/uWebSockets 
+    git clone https://github.com/uWebSockets/uWebSockets
     cd uWebSockets
     git checkout e94b6e1
     ```
@@ -31,7 +79,7 @@ Self-Driving Car Engineer Nanodegree Program
   * Mac: `brew install ipopt`
   * Linux
     * You will need a version of Ipopt 3.12.1 or higher. The version available through `apt-get` is 3.11.x. If you can get that version to work great but if not there's a script `install_ipopt.sh` that will install Ipopt. You just need to download the source from the Ipopt [releases page](https://www.coin-or.org/download/source/Ipopt/) or the [Github releases](https://github.com/coin-or/Ipopt/releases) page.
-    * Then call `install_ipopt.sh` with the source directory as the first argument, ex: `bash install_ipopt.sh Ipopt-3.12.1`. 
+    * Then call `install_ipopt.sh` with the source directory as the first argument, ex: `bash install_ipopt.sh Ipopt-3.12.1`.
   * Windows: TODO. If you can use the Linux subsystem and follow the Linux instructions.
 * [CppAD](https://www.coin-or.org/CppAD/)
   * Mac: `brew install cppad`

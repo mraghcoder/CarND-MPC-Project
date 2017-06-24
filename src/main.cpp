@@ -92,13 +92,8 @@ int main() {
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
-          /*
-          * TODO: Calculate steering angle and throttle using MPC.
-          *
-          * Both are in between [-1, 1].
-          *
-          */
-          // Shift vehicle poisiton
+
+          // Map vehicle poisiton to car co-ordinates
           for (int i=0; i<ptsy.size(); i++){
             double shiftx = ptsx[i]-px;
             double shifty = ptsy[i]-py;
@@ -113,29 +108,48 @@ int main() {
           Eigen::Map<Eigen::VectorXd> ptsx_trans(ptrx,6);
           Eigen::Map<Eigen::VectorXd> ptsy_trans(ptry,6);
 
+          // Fit waypoints to 3rd order polynomial
           auto coeffs = polyfit(ptsx_trans, ptsy_trans, 3);
 
-          // Calculate errors cte and epsi
+          // Calculate errors cte and epsi from polyfit coeff
           double cte = polyeval(coeffs, 0);
           double epsi = -atan(coeffs[1]); //Simplification based on vehicle poition transform
 
-          //double steer_value = j[1]["steering_angle"];
-          //double throttle_value = j[1]["throttle"];
+          double steer_value = j[1]["steering_angle"];
+          double throttle_value = j[1]["throttle"];
+          double Lf = 2.67;
 
+          // After transform vehicle is at px=0, py=0
+          px = 0;
+          py = 0;
+          psi = 0;
           Eigen::VectorXd state(6);
-          state<<0,0,0,v,cte,epsi;
 
+          //state<<px,py,psi,v,cte,epsi; // NO latency
+
+          // Account for latency in kinematic motion model
+          double l = 0.1; //latency of 100ms
+
+          px += l*v*1.6*5/18*cos(psi); // Accounting for latency and conversion from mph to m/s
+          py += l*v*1.6*5/18*sin(psi); // which is 0
+          psi -= v/Lf*steer_value*l;
+          cte += v*sin(epsi)*l;
+          epsi -= v/Lf*steer_value*l;
+
+          state<<px,py,psi,v,cte,epsi; // with latency
+
+          // Solve for state with coeff
           auto vars  = mpc.Solve(state, coeffs);
 
-          double steer_value = -vars[0]; //-vars[0]/deg2rad(25);
-          double throttle_value = vars[1];
+          steer_value = -vars[0]; //-vars[0]/deg2rad(25);
+          throttle_value = vars[1];
 
           printf("Steer:%f \t Throttle:%f \n", steer_value/deg2rad(25), throttle_value);
-          printf("CTE: %f \t EPsi: %f \n", cte, epsi);
+          printf("CTE: %f \t ePsi: %f \n", cte, epsi);
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
-          double Lf = 2.67;
+
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = throttle_value;
 
@@ -161,7 +175,7 @@ int main() {
           vector<double> next_y_vals;
 
           double increment = 2;
-          int num_points = 30;
+          int num_points = 25;
           for (int i=1; i<num_points; i++){
             next_x_vals.push_back(increment*i);
             next_y_vals.push_back(polyeval(coeffs, increment*i));
